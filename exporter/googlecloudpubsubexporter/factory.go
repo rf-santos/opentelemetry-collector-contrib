@@ -44,10 +44,10 @@ func ensureExporter(params exporter.Settings, pCfg *Config) *pubsubExporter {
 	if exp != nil {
 		return exp
 	}
-	
+
 	// we ignore the error here as the config is already validated with the same method
 	encoding, _ := pCfg.parseEncoding()
-	
+
 	exp = &pubsubExporter{
 		logger:     params.Logger,
 		userAgent:  strings.ReplaceAll(pCfg.UserAgent, "{{version}}", params.BuildInfo.Version),
@@ -57,7 +57,7 @@ func ensureExporter(params exporter.Settings, pCfg *Config) *pubsubExporter {
 		makeUUID:   uuid.NewRandom,
 		makeClient: newPublisherClient,
 	}
-	
+
 	// Set marshalers based on encoding type
 	if encoding == jsonEncoding {
 		exp.tracesMarshaler = &ptrace.JSONMarshaler{}
@@ -68,7 +68,7 @@ func ensureExporter(params exporter.Settings, pCfg *Config) *pubsubExporter {
 		exp.metricsMarshaler = &pmetric.ProtoMarshaler{}
 		exp.logsMarshaler = &plog.ProtoMarshaler{}
 	}
-	
+
 	exp.ceCompression, _ = pCfg.parseCompression()
 	watermarkBehavior, _ := pCfg.Watermark.parseWatermarkBehavior()
 	switch watermarkBehavior {
