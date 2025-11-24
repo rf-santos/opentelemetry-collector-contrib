@@ -45,7 +45,7 @@ func ensureExporter(params exporter.Settings, pCfg *Config) *pubsubExporter {
 		return exp
 	}
 
-	// we ignore the error here as the config is already validated with the same method
+	// Error is ignored as config validation in Validate() ensures parseEncoding() succeeds
 	encoding, _ := pCfg.parseEncoding()
 
 	exp = &pubsubExporter{
