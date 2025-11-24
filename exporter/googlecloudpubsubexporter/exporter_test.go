@@ -475,3 +475,136 @@ func (m *mockPublisher) Publish(_ context.Context, request *pb.PublishRequest, _
 func (*mockPublisher) Close() error {
 	return nil
 }
+
+func TestGetMessageAttributesWithJSONEncoding(t *testing.T) {
+	date := time.Date(2021, time.January, 1, 2, 3, 4, 5, time.UTC)
+
+	t.Run("logs", func(t *testing.T) {
+		exporter, _ := newTestExporter(t, func(cfg *Config) {
+			cfg.Encoding = "json"
+		})
+
+		gotAttributes, err := exporter.getMessageAttributes(otlpJSONLog, date)
+		require.NoError(t, err)
+
+		expectedAttributes := map[string]string{
+			"ce-id":          "00000000-0000-0000-0000-000000000000",
+			"ce-source":      "/opentelemetry/collector/googlecloudpubsub/latest",
+			"ce-specversion": "1.0",
+			"ce-time":        "2021-01-01T02:03:04.000000005Z",
+			"ce-type":        "org.opentelemetry.otlp.logs.v1",
+			"content-type":   "application/json",
+		}
+		assert.Equal(t, expectedAttributes, gotAttributes)
+	})
+
+	t.Run("metrics", func(t *testing.T) {
+		exporter, _ := newTestExporter(t, func(cfg *Config) {
+			cfg.Encoding = "json"
+		})
+
+		gotAttributes, err := exporter.getMessageAttributes(otlpJSONMetric, date)
+		require.NoError(t, err)
+
+		expectedAttributes := map[string]string{
+			"ce-id":          "00000000-0000-0000-0000-000000000000",
+			"ce-source":      "/opentelemetry/collector/googlecloudpubsub/latest",
+			"ce-specversion": "1.0",
+			"ce-time":        "2021-01-01T02:03:04.000000005Z",
+			"ce-type":        "org.opentelemetry.otlp.metrics.v1",
+			"content-type":   "application/json",
+		}
+		assert.Equal(t, expectedAttributes, gotAttributes)
+	})
+
+	t.Run("traces", func(t *testing.T) {
+		exporter, _ := newTestExporter(t, func(cfg *Config) {
+			cfg.Encoding = "json"
+		})
+
+		gotAttributes, err := exporter.getMessageAttributes(otlpJSONTrace, date)
+		require.NoError(t, err)
+
+		expectedAttributes := map[string]string{
+			"ce-id":          "00000000-0000-0000-0000-000000000000",
+			"ce-source":      "/opentelemetry/collector/googlecloudpubsub/latest",
+			"ce-specversion": "1.0",
+			"ce-time":        "2021-01-01T02:03:04.000000005Z",
+			"ce-type":        "org.opentelemetry.otlp.traces.v1",
+			"content-type":   "application/json",
+		}
+		assert.Equal(t, expectedAttributes, gotAttributes)
+	})
+}
+
+func TestExporterSimpleDataWithJSONEncoding(t *testing.T) {
+	withJSONEncoding := func(config *Config) {
+		config.Encoding = "json"
+	}
+
+	t.Run("logs", func(t *testing.T) {
+		exporter, publisher := newTestExporter(t, withJSONEncoding)
+
+		logs := plog.NewLogs()
+		logs.ResourceLogs().AppendEmpty().ScopeLogs().AppendEmpty().LogRecords().AppendEmpty().Body().SetStr("some log message")
+
+		require.NoError(t, exporter.consumeLogs(t.Context(), logs))
+		require.Len(t, publisher.requests, 1)
+
+		request := publisher.requests[0]
+		assert.Equal(t, defaultTopic, request.Topic)
+		assert.Len(t, request.Messages, 1)
+
+		message := request.Messages[0]
+		assert.NotEmpty(t, message.Data)
+		assert.Subset(t, message.Attributes, map[string]string{
+			"ce-type":      "org.opentelemetry.otlp.logs.v1",
+			"content-type": "application/json",
+		})
+	})
+
+	t.Run("metrics", func(t *testing.T) {
+		exporter, publisher := newTestExporter(t, withJSONEncoding)
+
+		metrics := pmetric.NewMetrics()
+		metric := metrics.ResourceMetrics().AppendEmpty().ScopeMetrics().AppendEmpty().Metrics().AppendEmpty()
+		metric.SetName("some.metric")
+		metric.SetEmptyGauge().DataPoints().AppendEmpty().SetIntValue(42)
+
+		require.NoError(t, exporter.consumeMetrics(t.Context(), metrics))
+		require.Len(t, publisher.requests, 1)
+
+		request := publisher.requests[0]
+		assert.Equal(t, defaultTopic, request.Topic)
+		assert.Len(t, request.Messages, 1)
+
+		message := request.Messages[0]
+		assert.NotEmpty(t, message.Data)
+		assert.Subset(t, message.Attributes, map[string]string{
+			"ce-type":      "org.opentelemetry.otlp.metrics.v1",
+			"content-type": "application/json",
+		})
+	})
+
+	t.Run("traces", func(t *testing.T) {
+		exporter, publisher := newTestExporter(t, withJSONEncoding)
+
+		traces := ptrace.NewTraces()
+		span := traces.ResourceSpans().AppendEmpty().ScopeSpans().AppendEmpty().Spans().AppendEmpty()
+		span.SetName("some span")
+
+		require.NoError(t, exporter.consumeTraces(t.Context(), traces))
+		require.Len(t, publisher.requests, 1)
+
+		request := publisher.requests[0]
+		assert.Equal(t, defaultTopic, request.Topic)
+		assert.Len(t, request.Messages, 1)
+
+		message := request.Messages[0]
+		assert.NotEmpty(t, message.Data)
+		assert.Subset(t, message.Attributes, map[string]string{
+			"ce-type":      "org.opentelemetry.otlp.traces.v1",
+			"content-type": "application/json",
+		})
+	})
+}

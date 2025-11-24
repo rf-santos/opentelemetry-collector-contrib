@@ -4,6 +4,7 @@ googlecloudpubsub/customname:
   user_agent: opentelemetry-collector-contrib {{version}}
   timeout: 20s
   topic: projects/my-project/topics/otlp-topic
+  encoding: json
   compression: gzip
   watermark:
     behavior: earliest

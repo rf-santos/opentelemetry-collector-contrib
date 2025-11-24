@@ -42,6 +42,7 @@ func TestLoadConfig(t *testing.T) {
 		Timeout: 20 * time.Second,
 	}
 	expectedConfig.Topic = "projects/my-project/topics/otlp-topic"
+	expectedConfig.Encoding = "json"
 	expectedConfig.Compression = "gzip"
 	expectedConfig.Watermark.Behavior = "earliest"
 	expectedConfig.Watermark.AllowedDrift = time.Hour
@@ -112,5 +113,20 @@ func TestOrderConfigValidation(t *testing.T) {
 	c.Ordering.Enabled = true
 	assert.Error(t, c.Validate())
 	c.Ordering.FromResourceAttribute = "key"
+	assert.NoError(t, c.Validate())
+}
+
+func TestEncodingConfigValidation(t *testing.T) {
+	factory := NewFactory()
+	c := factory.CreateDefaultConfig().(*Config)
+	c.Topic = "projects/my-project/topics/my-topic"
+	assert.NoError(t, c.Validate())
+	c.Encoding = "xxx"
+	assert.Error(t, c.Validate())
+	c.Encoding = "protobuf"
+	assert.NoError(t, c.Validate())
+	c.Encoding = "json"
+	assert.NoError(t, c.Validate())
+	c.Encoding = ""
 	assert.NoError(t, c.Validate())
 }
