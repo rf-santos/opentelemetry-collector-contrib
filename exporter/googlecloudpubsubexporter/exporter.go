@@ -96,6 +96,27 @@ func (ex *pubsubExporter) shutdown(_ context.Context) error {
 	return client.Close()
 }
 
+func (ex *pubsubExporter) getEncodingForTraces() encoding {
+	if ex.ceEncoding == jsonEncoding {
+		return otlpJSONTrace
+	}
+	return otlpProtoTrace
+}
+
+func (ex *pubsubExporter) getEncodingForMetrics() encoding {
+	if ex.ceEncoding == jsonEncoding {
+		return otlpJSONMetric
+	}
+	return otlpProtoMetric
+}
+
+func (ex *pubsubExporter) getEncodingForLogs() encoding {
+	if ex.ceEncoding == jsonEncoding {
+		return otlpJSONLog
+	}
+	return otlpProtoLog
+}
+
 func (ex *pubsubExporter) getMessageAttributes(encoding encoding, watermark time.Time) (map[string]string, error) {
 	id, err := ex.makeUUID()
 	if err != nil {
@@ -181,14 +202,7 @@ func (ex *pubsubExporter) consumeTraces(ctx context.Context, traces ptrace.Trace
 func (ex *pubsubExporter) publishTraces(ctx context.Context, tracesForKey ptrace.Traces, orderingKey string) error {
 	watermark := ex.tracesWatermarkFunc(tracesForKey, time.Now(), ex.config.Watermark.AllowedDrift).UTC()
 
-	var encodingType encoding
-	if ex.ceEncoding == jsonEncoding {
-		encodingType = otlpJSONTrace
-	} else {
-		encodingType = otlpProtoTrace
-	}
-
-	attributes, attributesErr := ex.getMessageAttributes(encodingType, watermark)
+	attributes, attributesErr := ex.getMessageAttributes(ex.getEncodingForTraces(), watermark)
 	if attributesErr != nil {
 		return fmt.Errorf("error while preparing pubsub message attributes: %w", attributesErr)
 	}
@@ -244,14 +258,7 @@ func (ex *pubsubExporter) consumeMetrics(ctx context.Context, metrics pmetric.Me
 func (ex *pubsubExporter) publishMetrics(ctx context.Context, metricsForKey pmetric.Metrics, orderingKey string) error {
 	watermark := ex.metricsWatermarkFunc(metricsForKey, time.Now(), ex.config.Watermark.AllowedDrift).UTC()
 
-	var encodingType encoding
-	if ex.ceEncoding == jsonEncoding {
-		encodingType = otlpJSONMetric
-	} else {
-		encodingType = otlpProtoMetric
-	}
-
-	attributes, attributesErr := ex.getMessageAttributes(encodingType, watermark)
+	attributes, attributesErr := ex.getMessageAttributes(ex.getEncodingForMetrics(), watermark)
 	if attributesErr != nil {
 		return fmt.Errorf("error while preparing pubsub message attributes: %w", attributesErr)
 	}
@@ -309,14 +316,7 @@ func (ex *pubsubExporter) consumeLogs(ctx context.Context, logs plog.Logs) error
 func (ex *pubsubExporter) publishLogs(ctx context.Context, logs plog.Logs, orderingKey string) error {
 	watermark := ex.logsWatermarkFunc(logs, time.Now(), ex.config.Watermark.AllowedDrift).UTC()
 
-	var encodingType encoding
-	if ex.ceEncoding == jsonEncoding {
-		encodingType = otlpJSONLog
-	} else {
-		encodingType = otlpProtoLog
-	}
-
-	attributes, attributesErr := ex.getMessageAttributes(encodingType, watermark)
+	attributes, attributesErr := ex.getMessageAttributes(ex.getEncodingForLogs(), watermark)
 	if attributesErr != nil {
 		return fmt.Errorf("error while preparing pubsub message attributes: %w", attributesErr)
 	}
