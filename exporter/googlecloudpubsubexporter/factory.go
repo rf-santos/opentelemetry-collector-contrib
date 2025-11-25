@@ -44,18 +44,31 @@ func ensureExporter(params exporter.Settings, pCfg *Config) *pubsubExporter {
 	if exp != nil {
 		return exp
 	}
+
+	// Error is ignored as config validation in Validate() ensures parseEncoding() succeeds
+	encoding, _ := pCfg.parseEncoding()
+
 	exp = &pubsubExporter{
-		logger:           params.Logger,
-		userAgent:        strings.ReplaceAll(pCfg.UserAgent, "{{version}}", params.BuildInfo.Version),
-		ceSource:         fmt.Sprintf("/opentelemetry/collector/%s/%s", metadata.Type.String(), params.BuildInfo.Version),
-		config:           pCfg,
-		tracesMarshaler:  &ptrace.ProtoMarshaler{},
-		metricsMarshaler: &pmetric.ProtoMarshaler{},
-		logsMarshaler:    &plog.ProtoMarshaler{},
-		makeUUID:         uuid.NewRandom,
-		makeClient:       newPublisherClient,
+		logger:     params.Logger,
+		userAgent:  strings.ReplaceAll(pCfg.UserAgent, "{{version}}", params.BuildInfo.Version),
+		ceSource:   fmt.Sprintf("/opentelemetry/collector/%s/%s", metadata.Type.String(), params.BuildInfo.Version),
+		config:     pCfg,
+		ceEncoding: encoding,
+		makeUUID:   uuid.NewRandom,
+		makeClient: newPublisherClient,
 	}
-	// we ignore the error here as the config is already validated with the same method
+
+	// Set marshalers based on encoding type
+	if encoding == jsonEncoding {
+		exp.tracesMarshaler = &ptrace.JSONMarshaler{}
+		exp.metricsMarshaler = &pmetric.JSONMarshaler{}
+		exp.logsMarshaler = &plog.JSONMarshaler{}
+	} else {
+		exp.tracesMarshaler = &ptrace.ProtoMarshaler{}
+		exp.metricsMarshaler = &pmetric.ProtoMarshaler{}
+		exp.logsMarshaler = &plog.ProtoMarshaler{}
+	}
+
 	exp.ceCompression, _ = pCfg.parseCompression()
 	watermarkBehavior, _ := pCfg.Watermark.parseWatermarkBehavior()
 	switch watermarkBehavior {

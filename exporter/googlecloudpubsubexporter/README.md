@@ -22,6 +22,7 @@ The following configuration options are supported:
 * `project` (Optional): The Google Cloud Project of the topics.
 * `topic` (Required): The topic name to send OTLP data over. The topic name should be a fully qualified resource
   name (eg: `projects/otel-project/topics/otlp`).
+* `encoding` (Optional): The encoding format of the payload. Supported values are `protobuf` (default) and `json`.
 * `compression` (Optional): Set the payload compression, only `gzip` is supported. Default is no compression.
 * `watermark` Behaviour of how the `ce-time` attribute is set (see watermark section for more info)
   * `behavior` (Optional): `current` sets the `ce-time` attribute to the system clock, `earliest` sets the attribute to 
@@ -71,8 +72,26 @@ traces, metrics or logs respectively.  Each message is accompanied by the follow
 | ce-id            | a random `UUID` to uniquely define the message                                                                                                                    |
 | ce-time          | a watermark indicating when the events, encapsulated in the OTLP message, where generated. The behavior will depend on the watermark setting in the configuration |
 | ce-type          | depending on the data `org.opentelemetry.otlp.traces.v1`, `org.opentelemetry.otlp.metrics.v1` or `org.opentelemetry.otlp.logs.v1`                                 |
-| content-type     | the content type is `application/protobuf`                                                                                                                        | 
+| content-type     | the content type is either `application/protobuf` (default) or `application/json` depending on the encoding configuration                                         | 
 | content-encoding | indicates that payload is compressed. Only gzip compression is supported                                                                                          |
+
+### Encoding
+
+By default, the messages are encoded using Protocol Buffers (`protobuf`). The exporter also supports JSON encoding 
+for the OTLP messages. This can be configured by setting the `encoding` configuration option.
+
+```yaml
+exporters:
+  googlecloudpubsub:
+    project: my-project
+    topic: projects/my-project/topics/otlp-traces
+    encoding: json
+```
+
+The exporter will set the `content-type` attribute to either `application/protobuf` or `application/json` based 
+on the encoding configuration. The receiver should use this attribute to determine how to decode the message payload.
+
+Supported encoding values are `protobuf` (default) and `json`.
 
 ### Compression
  

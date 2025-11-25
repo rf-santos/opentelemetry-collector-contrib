@@ -32,6 +32,8 @@ type Config struct {
 
 	// The fully qualified resource name of the Pubsub topic
 	Topic string `mapstructure:"topic"`
+	// Encoding of the payload (protobuf or json, protobuf is the default)
+	Encoding string `mapstructure:"encoding"`
 	// Compression of the payload (only gzip or is supported, no compression is the default)
 	Compression string `mapstructure:"compression"`
 	// Watermark defines the watermark (the ce-time attribute on the message) behavior
@@ -65,6 +67,9 @@ func (config *Config) Validate() error {
 	if !topicMatcher.MatchString(config.Topic) {
 		errors = multierr.Append(errors, fmt.Errorf("topic '%s' is not a valid format, use 'projects/<project_id>/topics/<name>'", config.Topic))
 	}
+	if _, err := config.parseEncoding(); err != nil {
+		errors = multierr.Append(errors, err)
+	}
 	if _, err := config.parseCompression(); err != nil {
 		errors = multierr.Append(errors, err)
 	}
@@ -86,6 +91,18 @@ func (cfg *OrderingConfig) validate() error {
 		return errors.New("'from_resource_attribute' is required if ordering is enabled")
 	}
 	return nil
+}
+
+func (config *Config) parseEncoding() (encodingType, error) {
+	switch config.Encoding {
+	case "protobuf":
+		return protobuf, nil
+	case "json":
+		return jsonEncoding, nil
+	case "":
+		return protobuf, nil
+	}
+	return protobuf, fmt.Errorf("encoding %v is not supported. supported encodings include [protobuf, json]", config.Encoding)
 }
 
 func (config *Config) parseCompression() (compression, error) {
